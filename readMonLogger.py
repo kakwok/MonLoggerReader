@@ -14,7 +14,7 @@ def makeAllplots(graphs,cvf,title):
     can = TCanvas("c","c",800,600)
     if "multiGraph" in title:
         can.SetLogy(1)
-    leg = TLegend(0.7,0.7,0.9,0.9)
+    leg = TLegend(0.2,0.2,0.4,0.3)
     for gName,g in graphs.iteritems():
         if g.GetN()==0:continue
         mg.Add(g)
@@ -31,7 +31,7 @@ def makeAllplots(graphs,cvf,title):
     mg.Draw("alp")
     mg.GetXaxis().SetTimeDisplay(1)
     leg.Draw("same")
-    can.SaveAs('%s.pdf'%title)
+    can.SaveAs('%s.png'%title)
 
         
 
@@ -112,6 +112,8 @@ parser.add_argument("--maxLine"     , help="number of OutputLine from StartTime"
 parser.add_argument("--printConfig" , help="json file to filter output")
 parser.add_argument("--startTime"   , help="StartTime to look for lines, format: yyyy-mm-dd HH:MM", required=True)
 parser.add_argument("--endTime"     , help="EndTime   to look for lines, format: yyyy-mm-dd HH:MM")
+parser.add_argument("--makePlots"   , help="make timeseries plots for all columns",  action='store_true',default=False)
+parser.add_argument("--makeTable"   , help="Print out table to screen (will be slower)", action='store_true',default=False)
 args = parser.parse_args()
 
 fileLocation = args.fileLocation
@@ -161,8 +163,8 @@ headerJson = {}
 headerJson["columnToShow"] = header
 #print json.dumps(headerJson)
 
-makePlots       = True
-makePrettyTable = True
+makePlots       = args.makePlots
+makePrettyTable = args.makeTable
 table = PrettyTable()
 fieldNames = []
 graphs     = {}
@@ -180,25 +182,28 @@ for colname in columnToShow:
     colwidth = max([len(colname)+2,10])
     output +="{:^{width}}".format(colname,width=colwidth)
 printRequest(fileLocation,startTime,maxLine,columnValueFilter,endTime)
-if not makePrettyTable: 
-    print output 
 table.field_names = fieldNames
 
 
 # Print results
+print "Finish loading table, printing results"
 for row in loggerTable:
     output = ""
     skip   = False
     if len(columnValueFilter)>0:
        for Filter in columnValueFilter:
-           if Filter["logic"]=="exact":
-               if not (Filter["value"] == row[Filter["colname"]]): skip=True
-           elif Filter["logic"]=="contain":
+           if Filter["logic"]=="contain":
                if not (Filter["value"] in row[Filter["colname"]]): skip=True
-           elif Filter["logic"]==">=":
-               if not (float(row[Filter["colname"]]) >= float(Filter["value"])): skip=True
-           elif Filter["logic"]=="<=":
-               if not (float(row[Filter["colname"]]) <= float(Filter["value"])): skip=True
+           if Filter["logic"]=="!=":
+               if not (Filter["value"] != row[Filter["colname"]]): skip=True
+           #elif Filter["logic"]=="exact":
+           #    if not (Filter["value"] == row[Filter["colname"]]): skip=True
+           #elif Filter["logic"]=="contain":
+           #    if not (Filter["value"] in row[Filter["colname"]]): skip=True
+           #elif Filter["logic"]==">=":
+           #    if not (float(row[Filter["colname"]]) >= float(Filter["value"])): skip=True
+           #elif Filter["logic"]=="<=":
+           #    if not (float(row[Filter["colname"]]) <= float(Filter["value"])): skip=True
     if skip : continue
     tableRow = []
     
@@ -207,25 +212,34 @@ for row in loggerTable:
     for colname in columnToShow:
         if not (colname in header): continue        #allow commenting from json
         colwidth = len(row[colname])+2
-        output += "{:^{width}}".format(row[colname],width=colwidth)
         try: 
             y = float(row[colname])
+            if "FLAG" in colname and y<0:  y=1 # handle negative codes during server restarts
             g = graphs[colname]
             g.SetPoint(g.GetN(),t, y)      #only plot floats
         except ValueError:
-            pass
-        tableRow.append(row[colname])
-    table.add_row(tableRow)
-    if not makePrettyTable: 
-        print output
+            if "FLAG" in colname :
+                flag = row[colname]
+                if (("lg" in colname or 'pg' in colname) and  flag =="_"):  y = 0
+                elif ("cg" in colname and  flag =="G")                   :  y = 0
+                else                                                     :  y = 1
+                g = graphs[colname]
+                g.SetPoint(g.GetN(),t, y)      #only plot floats
+            else:
+                pass
+        if makePrettyTable:
+            tableRow.append(row[colname])
+    if  makePrettyTable:
+        table.add_row(tableRow)
 if makePrettyTable: 
     print table
+printConfigFileName = args.printConfig.split("/")[-1].replace(".json","")
 if makePlots:
-    graphROOT = TFile("graphs.root","RECREATE")
+    graphROOT = TFile("graphs_%s.root"%(printConfigFileName),"RECREATE")
     for gName in graphs:
         graphs[gName].Write()
         oneGraph = {}
         oneGraph[gName] = graphs[gName].Clone()
         if oneGraph[gName].GetN()>0:
-            makeAllplots(oneGraph, columnValueFilter,gName)
+            makeAllplots(oneGraph, columnValueFilter,gName+"_"+printConfigFileName)
     makeAllplots(graphs, columnValueFilter,"multiGraph")
