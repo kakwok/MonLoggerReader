@@ -7,7 +7,7 @@ from datetime import datetime
 from prettytable import PrettyTable
 from ROOT import *
 
-def makeAllplots(graphs,cvf,title):
+def makeAllplots(graphs,cvf,title,ymin,ymax):
     gROOT.SetBatch()
     mg     = TMultiGraph()
     nGraphs= 0
@@ -15,7 +15,7 @@ def makeAllplots(graphs,cvf,title):
     if "multiGraph" in title:
         can.SetLogy(1)
     leg = TLegend(0.2,0.35,0.4,0.45)
-    for gName,g in graphs.iteritems():
+    for gName,g in sorted(graphs.iteritems()):
         if g.GetN()==0:continue
         mg.Add(g)
         g.SetLineColor(nGraphs+1)
@@ -30,8 +30,8 @@ def makeAllplots(graphs,cvf,title):
         filterInfo += "%s %s %s "%(Filter['colname'],Filter['logic'],Filter['value'])
     mg.SetTitle(filterInfo)
     mg.Draw("alp")
-    mg.SetMinimum(1E-6)
-    mg.SetMaximum(1E5)
+    mg.SetMinimum(ymin)
+    mg.SetMaximum(ymax)
     mg.GetXaxis().SetTimeDisplay(1)
     leg.SetBorderSize(0)
     leg.Draw("same")
@@ -111,7 +111,12 @@ def loadfile(f,startTime,maxLine,EndTime=None):
         return loggerTable
     else:
         print "file %s does not exists. Are you on hcalmon?"%f
-        
+       
+def buildname(elements):
+    listTojoin = []
+    for el in elements:
+        if el is not "":    listTojoin.append(el)
+    return "_".join(listTojoin)
 ###########################################
 parser = argparse.ArgumentParser()
 parser.add_argument("--fileLocation", help="path to the monLogger file")
@@ -120,6 +125,8 @@ parser.add_argument("--printConfig" , help="json file to filter output")
 parser.add_argument("--startTime"   , help="StartTime to look for lines, format: yyyy-mm-dd HH:MM", required=True)
 parser.add_argument("--endTime"     , help="EndTime   to look for lines, format: yyyy-mm-dd HH:MM")
 parser.add_argument("--RBX"         , help="select an RBX ",default="")
+parser.add_argument("--ymin"        , help="min y-value on plots", type=float, default=1E-6)
+parser.add_argument("--ymax"        , help="max y-value on plots", type=float, default=1E5)
 parser.add_argument("-o","--odir"   ,dest="odir", help="output path",default="./")
 parser.add_argument("--makePlots"   , help="make timeseries plots for all columns",  action='store_true',default=False)
 parser.add_argument("--makeTable"   , help="Print out table to screen (will be slower)", action='store_true',default=False)
@@ -147,10 +154,10 @@ else:
         colToShow.append(colname)
     configDict["columnToShow"] = colToShow
     columnToShow      = colToShow
-    defaultConfigName = os.path.join(args.odir,fileLocation.split("/")[-1].replace("txt","json"))
+    defaultConfigName = fileLocation.split("/")[-1].replace("txt","json")
     if not os.path.exists(defaultConfigName):
-        print "Cannot found printConfig json file, writing a new one: %s " % (fileLocation.split("/")[-1].replace("txt","json"))
-        newConfig = open(fileLocation.split("/")[-1].replace("txt","json"),"w")
+        print "Cannot find printConfig json file, writing a new one: %s " % (os.path.join(args.odir,fileLocation.split("/")[-1].replace("txt","json")))
+        newConfig = open(os.path.join(args.odir,fileLocation.split("/")[-1].replace("txt","json"),"w"))
         newConfig.write(json.dumps(configDict))
     else:
         printConfigFile=open(defaultConfigName)
@@ -246,7 +253,11 @@ for row in loggerTable:
         table.add_row(tableRow)
 if makePrettyTable: 
     print table
-printConfigFileName = args.printConfig.split("/")[-1].replace(".json","")
+if args.printConfig is not None:
+    printConfigFileName = args.printConfig.split("/")[-1].replace(".json","")
+else:
+    defaultConfigName   = fileLocation.split("/")[-1].replace("txt","json")
+    printConfigFileName = defaultConfigName.split("/")[-1].replace(".json","")
 if makePlots:
     graphROOT = TFile("graphs_%s.root"%(printConfigFileName),"RECREATE")
     for gName in graphs:
@@ -255,4 +266,6 @@ if makePlots:
         #oneGraph[gName] = graphs[gName].Clone()
         #if oneGraph[gName].GetN()>0:
         #    makeAllplots(oneGraph, columnValueFilter,args.odir+gName+"_"+printConfigFileName)
-    makeAllplots(graphs, columnValueFilter,os.path.join(args.odir,"multiGraph_"+printConfigFileName))
+    title = os.path.join(args.odir,buildname([args.RBX,"multiGraph",printConfigFileName]))
+    
+    makeAllplots(graphs, columnValueFilter,title,args.ymin, args.ymax)
