@@ -11,15 +11,16 @@ def makeAllplots(graphs,cvf,title):
     gROOT.SetBatch()
     mg     = TMultiGraph()
     nGraphs= 0
-    can = TCanvas("c","c",800,600)
+    can = TCanvas("c","c",2400,1600)
     if "multiGraph" in title:
         can.SetLogy(1)
-    leg = TLegend(0.2,0.2,0.4,0.3)
+    leg = TLegend(0.2,0.35,0.4,0.45)
     for gName,g in graphs.iteritems():
         if g.GetN()==0:continue
         mg.Add(g)
         g.SetLineColor(nGraphs+1)
         g.SetFillColor(nGraphs+1)
+        g.SetMarkerColor(nGraphs+1)
         g.SetMarkerStyle(kFullCircle)
         g.SetMarkerSize(0.5)
         leg.AddEntry(g,gName,"lp")
@@ -29,9 +30,15 @@ def makeAllplots(graphs,cvf,title):
         filterInfo += "%s %s %s "%(Filter['colname'],Filter['logic'],Filter['value'])
     mg.SetTitle(filterInfo)
     mg.Draw("alp")
+    mg.SetMinimum(1E-6)
+    mg.SetMaximum(1E5)
     mg.GetXaxis().SetTimeDisplay(1)
+    leg.SetBorderSize(0)
     leg.Draw("same")
-    can.SaveAs('%s.png'%title)
+    #can.SaveAs('%s.png'%title)
+    can.SetTickx()
+    can.SetTicky()
+    can.SaveAs('%s.pdf'%title)
 
         
 
@@ -112,6 +119,8 @@ parser.add_argument("--maxLine"     , help="number of OutputLine from StartTime"
 parser.add_argument("--printConfig" , help="json file to filter output")
 parser.add_argument("--startTime"   , help="StartTime to look for lines, format: yyyy-mm-dd HH:MM", required=True)
 parser.add_argument("--endTime"     , help="EndTime   to look for lines, format: yyyy-mm-dd HH:MM")
+parser.add_argument("--RBX"         , help="select an RBX ",default="")
+parser.add_argument("-o","--odir"   ,dest="odir", help="output path",default="./")
 parser.add_argument("--makePlots"   , help="make timeseries plots for all columns",  action='store_true',default=False)
 parser.add_argument("--makeTable"   , help="Print out table to screen (will be slower)", action='store_true',default=False)
 args = parser.parse_args()
@@ -127,6 +136,7 @@ if(args.printConfig is not None):
     if "columnValueFilter" in printConfig.keys(): 
         columnValueFilter = printConfig["columnValueFilter"]
 else:
+    #auto build json config
     f = open(fileLocation,"r")
     header = f.readline()
     f.seek(0)
@@ -137,7 +147,7 @@ else:
         colToShow.append(colname)
     configDict["columnToShow"] = colToShow
     columnToShow      = colToShow
-    defaultConfigName = fileLocation.split("/")[-1].replace("txt","json")
+    defaultConfigName = os.path.join(args.odir,fileLocation.split("/")[-1].replace("txt","json"))
     if not os.path.exists(defaultConfigName):
         print "Cannot found printConfig json file, writing a new one: %s " % (fileLocation.split("/")[-1].replace("txt","json"))
         newConfig = open(fileLocation.split("/")[-1].replace("txt","json"),"w")
@@ -148,7 +158,10 @@ else:
         columnToShow      = printConfig["columnToShow"]
         if "columnValueFilter" in printConfig.keys():
             columnValueFilter = printConfig["columnValueFilter"]
-    
+   
+if args.RBX is not "":
+    RBXfilter = {"colname":"RBX","value":args.RBX,"logic":"contain"}
+    columnValueFilter.append(RBXfilter)
 startTime    = datetime.strptime(args.startTime,"%Y-%m-%d %H:%M")
 if args.endTime is not None:
     endTime      = datetime.strptime(args.endTime,"%Y-%m-%d %H:%M")
@@ -238,8 +251,8 @@ if makePlots:
     graphROOT = TFile("graphs_%s.root"%(printConfigFileName),"RECREATE")
     for gName in graphs:
         graphs[gName].Write()
-        oneGraph = {}
-        oneGraph[gName] = graphs[gName].Clone()
-        if oneGraph[gName].GetN()>0:
-            makeAllplots(oneGraph, columnValueFilter,gName+"_"+printConfigFileName)
-    makeAllplots(graphs, columnValueFilter,"multiGraph")
+        #oneGraph = {}
+        #oneGraph[gName] = graphs[gName].Clone()
+        #if oneGraph[gName].GetN()>0:
+        #    makeAllplots(oneGraph, columnValueFilter,args.odir+gName+"_"+printConfigFileName)
+    makeAllplots(graphs, columnValueFilter,os.path.join(args.odir,"multiGraph_"+printConfigFileName))
