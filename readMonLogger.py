@@ -14,7 +14,7 @@ def makeAllplots(graphs,cvf,title,ymin,ymax):
     can = TCanvas("c","c",2400,1600)
     if "multiGraph" in title:
         can.SetLogy(1)
-    leg = TLegend(0.2,0.35,0.4,0.45)
+    leg = TLegend(0.2,0.35,0.5,0.55)
     for gName,g in sorted(graphs.iteritems()):
         if g.GetN()==0:continue
         mg.Add(g)
@@ -27,7 +27,8 @@ def makeAllplots(graphs,cvf,title,ymin,ymax):
         nGraphs +=1
     filterInfo=""
     for Filter in cvf:
-        filterInfo += "%s %s %s "%(Filter['colname'],Filter['logic'],Filter['value'])
+        #filterInfo += "%s %s %s "%(Filter['colname'],Filter['logic'],Filter['value'])
+        filterInfo += "%s %s "%(Filter['colname'],Filter['value'])
     mg.SetTitle(filterInfo)
     mg.Draw("alp")
     mg.SetMinimum(ymin)
@@ -234,6 +235,7 @@ for row in loggerTable:
         colwidth = len(row[colname])+2
         try: 
             y = float(row[colname])
+            if y<0: continue               # filter negative values
             if "FLAG" in colname and y<0:  y=1 # handle negative codes during server restarts
             g = graphs[colname]
             g.SetPoint(g.GetN(),t, y)      #only plot floats
