@@ -13,8 +13,9 @@ def makeAllplots(graphs,cvf,title,ymin,ymax):
     nGraphs= 0
     can = TCanvas("c","c",2400,1600)
     if "multiGraph" in title:
+        #can.SetLogy(0)
         can.SetLogy(1)
-    leg = TLegend(0.2,0.35,0.5,0.55)
+    leg = TLegend(0.2,0.3,0.5,0.5)
     for gName,g in sorted(graphs.iteritems()):
         if g.GetN()==0:continue
         mg.Add(g)
@@ -30,10 +31,12 @@ def makeAllplots(graphs,cvf,title,ymin,ymax):
         #filterInfo += "%s %s %s "%(Filter['colname'],Filter['logic'],Filter['value'])
         filterInfo += "%s %s "%(Filter['colname'],Filter['value'])
     mg.SetTitle(filterInfo)
+    mg.SetName("multigraph")
     mg.Draw("alp")
     mg.SetMinimum(ymin)
     mg.SetMaximum(ymax)
     mg.GetXaxis().SetTimeDisplay(1)
+    mg.Write()
     leg.SetBorderSize(0)
     leg.Draw("same")
     #can.SaveAs('%s.png'%title)
@@ -92,8 +95,10 @@ def loadfile(f,startTime,maxLine,EndTime=None):
         logfile.seek(0)
         for i in range(0,nLine):
             next(logfile)
-        for line in logfile:
-            line = line.strip().replace('"',"").split()
+        for iline,line in enumerate(logfile):
+            #print iline, line
+            #line = line.strip().replace('"',"").split()
+            line = line.strip().split()
             timeString   = line[0].replace("+02:00","").replace("+01:00","")
             timestamp   = datetime.strptime(timeString,'%Y-%m-%dT%H:%M:%S.%f')
             thisSecond  = timestamp.second
@@ -126,6 +131,7 @@ parser.add_argument("--printConfig" , help="json file to filter output")
 parser.add_argument("--startTime"   , help="StartTime to look for lines, format: yyyy-mm-dd HH:MM", required=True)
 parser.add_argument("--endTime"     , help="EndTime   to look for lines, format: yyyy-mm-dd HH:MM")
 parser.add_argument("--RBX"         , help="select an RBX ",default="")
+parser.add_argument("--crate"       , help="select an crate ",default="")
 parser.add_argument("--ymin"        , help="min y-value on plots", type=float, default=1E-6)
 parser.add_argument("--ymax"        , help="max y-value on plots", type=float, default=1E5)
 parser.add_argument("-o","--odir"   ,dest="odir", help="output path",default="./")
@@ -158,7 +164,7 @@ else:
     defaultConfigName = fileLocation.split("/")[-1].replace("txt","json")
     if not os.path.exists(defaultConfigName):
         print "Cannot find printConfig json file, writing a new one: %s " % (os.path.join(args.odir,fileLocation.split("/")[-1].replace("txt","json")))
-        newConfig = open(os.path.join(args.odir,fileLocation.split("/")[-1].replace("txt","json"),"w"))
+        newConfig = open(os.path.join(args.odir,fileLocation.split("/")[-1].replace("txt","json")),"w")
         newConfig.write(json.dumps(configDict))
     else:
         printConfigFile=open(defaultConfigName)
@@ -170,6 +176,10 @@ else:
 if args.RBX is not "":
     RBXfilter = {"colname":"RBX","value":args.RBX,"logic":"contain"}
     columnValueFilter.append(RBXfilter)
+if args.crate is not "":
+    cratefilter = {"colname":"CRATE","value":args.crate,"logic":"contain"}
+    columnValueFilter.append(cratefilter)
+
 startTime    = datetime.strptime(args.startTime,"%Y-%m-%d %H:%M")
 if args.endTime is not None:
     endTime      = datetime.strptime(args.endTime,"%Y-%m-%d %H:%M")
@@ -208,7 +218,7 @@ table.field_names = fieldNames
 
 # Print results
 print "Finish loading table, printing results"
-for row in loggerTable:
+for irow,row in enumerate(loggerTable):
     output = ""
     skip   = False
     if len(columnValueFilter)>0:
@@ -221,18 +231,19 @@ for row in loggerTable:
            #    if not (Filter["value"] == row[Filter["colname"]]): skip=True
            #elif Filter["logic"]=="contain":
            #    if not (Filter["value"] in row[Filter["colname"]]): skip=True
-           #elif Filter["logic"]==">=":
-           #    if not (float(row[Filter["colname"]]) >= float(Filter["value"])): skip=True
+           elif Filter["logic"]==">=":
+               if not (float(row[Filter["colname"]]) >= float(Filter["value"])): skip=True
            #elif Filter["logic"]=="<=":
            #    if not (float(row[Filter["colname"]]) <= float(Filter["value"])): skip=True
     if skip : continue
     tableRow = []
-    
     timeString  = row["timestamp"].replace("+02:00","").replace("+01:00","")
     t           = convertTimeString(timeString) 
     for colname in columnToShow:
         if not (colname in header): continue        #allow commenting from json
         colwidth = len(row[colname])+2
+        if makePrettyTable:
+            tableRow.append(row[colname])
         try: 
             y = float(row[colname])
             if y<0: continue               # filter negative values
@@ -249,10 +260,8 @@ for row in loggerTable:
                 g.SetPoint(g.GetN(),t, y)      #only plot floats
             else:
                 pass
-        if makePrettyTable:
-            tableRow.append(row[colname])
     if  makePrettyTable:
-        table.add_row(tableRow)
+            table.add_row(tableRow)
 if makePrettyTable: 
     print table
 if args.printConfig is not None:
@@ -261,13 +270,14 @@ else:
     defaultConfigName   = fileLocation.split("/")[-1].replace("txt","json")
     printConfigFileName = defaultConfigName.split("/")[-1].replace(".json","")
 if makePlots:
-    graphROOT = TFile("graphs_%s.root"%(printConfigFileName),"RECREATE")
+    startTime    = str(args.startTime)
+    graphROOT = TFile(args.odir+"/"+"graphs_%s_%s.root"%(printConfigFileName,startTime),"RECREATE")
     for gName in graphs:
         graphs[gName].Write()
         #oneGraph = {}
         #oneGraph[gName] = graphs[gName].Clone()
         #if oneGraph[gName].GetN()>0:
         #    makeAllplots(oneGraph, columnValueFilter,args.odir+gName+"_"+printConfigFileName)
-    title = os.path.join(args.odir,buildname([args.RBX,"multiGraph",printConfigFileName]))
+    title = os.path.join(args.odir,buildname([args.crate, args.RBX,"multiGraph",printConfigFileName,startTime]))
     
     makeAllplots(graphs, columnValueFilter,title,args.ymin, args.ymax)
