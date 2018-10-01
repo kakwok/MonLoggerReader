@@ -10,14 +10,14 @@ Parse text files from monLogger
 `columnToShow` : list of columns to be plotted. Use `#` to comment.
 
 `columnValueFiler` : a list of dictionaries with keys "colname","value","operator"
-e.g.
+e.g. 
 
 ```
    "columnValueFilter":[
        {
          "colname":"RBX",
          "value":"HEP20",
-         "operator":"contain"
+         "operator":"=="   # or [">=" , "<=", "!="]
       }
    ]
 ```
