@@ -5,6 +5,7 @@ Parse text files from monLogger
 `python writejson.py --fileLocation="pathToTextFile" `
 
 2. Configuration of json
+
 `flist` : list of input monLogger txt files. Need to have the same number of columns within one file. Use `#` to skip loading the files
 
 `columnToShow` : list of columns to be plotted. Use `#` to comment.
