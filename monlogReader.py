@@ -1,6 +1,7 @@
 #/usr/bin/env python2
 
 import argparse
+import cProfile
 import json
 import pandas as pd
 import numpy as np
@@ -76,7 +77,7 @@ def makeplots_matplotlib(df,cols,cvf,title,ymin,ymax):
     ax.legend(loc='best')
     plt.savefig("test.pdf")
  
-def makeplots(df,cols,cvf,title,ymin,ymax):
+def makeplots(dfcut,cols,cvf,title,ymin,ymax,png):
     gROOT.SetBatch()
     mg     = TMultiGraph()
     nGraphs= 0
@@ -119,8 +120,10 @@ def makeplots(df,cols,cvf,title,ymin,ymax):
     leg.Draw("same")
     can.SetTickx()
     can.SetTicky()
-    can.SaveAs('%s.pdf'%title)
-
+    pdf = '%s.pdf' % title
+    can.SaveAs(pdf)
+    if png:
+        os.system("pdftoppm -cropbox -singlefile -rx 400 -ry 300 -png %s %s" % (pdf, title))
 
 def buildselection(df, filters):
     for f in filters:
@@ -134,66 +137,81 @@ def buildselection(df, filters):
             df =  df.loc[ df[f['colname']]<=f['value'] ]
     return df
             
+def parsed_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--printConfig" , help="json file to filter output", required=True)
+    parser.add_argument("--startTime"   , help="StartTime to look for lines, format: yyyy-mm-dd HH:MM")
+    parser.add_argument("--endTime"     , help="EndTime   to look for lines, format: yyyy-mm-dd HH:MM")
+    parser.add_argument("--RBX"         , help="select an RBX "  ,default="")
+    parser.add_argument("--crate"       , help="select an crate ",default="")
+    parser.add_argument("--ymin"        , help="min y-value on plots", type=float, default=1E-6)
+    parser.add_argument("--ymax"        , help="max y-value on plots", type=float, default=1E5)
+    parser.add_argument("-o","--odir"   ,dest="odir", help="output path",default="./")
+    parser.add_argument("--makeTable"   , help="Print out table to screen ", action='store_true',default=False)
+    parser.add_argument("--profile"     , help="Profile this program.", action="store_true", default=False)
+    parser.add_argument("--png"         , help="Convert the .pdf to a .png", action="store_true", default=False)
+    return parser.parse_args()
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--printConfig" , help="json file to filter output", required=True)
-parser.add_argument("--startTime"   , help="StartTime to look for lines, format: yyyy-mm-dd HH:MM")
-parser.add_argument("--endTime"     , help="EndTime   to look for lines, format: yyyy-mm-dd HH:MM")
-parser.add_argument("--RBX"         , help="select an RBX "  ,default="")
-parser.add_argument("--crate"       , help="select an crate ",default="")
-parser.add_argument("--ymin"        , help="min y-value on plots", type=float, default=1E-6)
-parser.add_argument("--ymax"        , help="max y-value on plots", type=float, default=1E5)
-parser.add_argument("-o","--odir"   ,dest="odir", help="output path",default="./")
-parser.add_argument("--makeTable"   , help="Print out table to screen ", action='store_true',default=False)
-args = parser.parse_args()
+def main(args):
+    print datetime.now()
+    outname = os.path.join(args.odir,buildname([args.crate, args.RBX,"multiGraph",args.printConfig.split("/")[-1].replace(".json",""),args.startTime.split(" ")[0]]))
+    
+    columnToShow = []
+    flist        = []
+    if(args.printConfig is not None):
+        printConfigFile=open(args.printConfig)
+        printConfig       = json.load(printConfigFile)
+        columnToShow      = printConfig["columnToShow"]
+        if "columnValueFilter" in printConfig.keys(): 
+            columnValueFilter = printConfig["columnValueFilter"]
+        if "flist" in printConfig.keys(): 
+            flist = printConfig["flist"]
+            print flist
+    
+    columnValueFilters=[]
+    
+    if args.endTime is not None:
+        endTime      = datetime.strptime(args.endTime,"%Y-%m-%d %H:%M")
+        endTimefilter   = {"colname":"timestamp","value":endTime,"operator":"<="}
+        columnValueFilters.append(endTimefilter)
+    if args.startTime is not None:
+        startTime      = datetime.strptime(args.startTime,"%Y-%m-%d %H:%M")
+        startTimefilter   = {"colname":"timestamp","value":startTime,"operator":">="}
+        columnValueFilters.append(startTimefilter)
+    if args.RBX is not "":
+        RBXfilter = {"colname":"RBX","value":args.RBX,"operator":"=="}
+        columnValueFilters.append(RBXfilter)
+    if args.crate is not "":
+        cratefilter = {"colname":"CRATE","value":args.crate,"operator":"=="}
+        columnValueFilters.append(cratefilter)
+    
+    df_list = []
+    for f in flist:
+        if f[0]=="#": continue
+        df_list.append( getDataFrame(f,columnToShow,columnValueFilters))
+    
+    
+    frames = pd.concat( df_list )
+    frames.sort_values( by='dates')
+    
+    if args.makeTable:
+        print frames
+    
+    dfcut = buildselection(frames,columnValueFilters) 
+    print outname
+    outf    = TFile(outname+".root","RECREATE")
+    makeplots(dfcut, columnToShow, columnValueFilters, outname, args.ymin, args.ymax, args.png)
+    #makeplots_matplotlib(dfcut, columnToShow, columnValueFilters, "test", args.ymin, args.ymax)
+    print datetime.now()
 
-print datetime.now()
-outname = os.path.join(args.odir,buildname([args.crate, args.RBX,"multiGraph",args.printConfig.split("/")[-1].replace(".json",""),args.startTime.split(" ")[0]]))
 
-columnToShow = []
-flist        = []
-if(args.printConfig is not None):
-    printConfigFile=open(args.printConfig)
-    printConfig       = json.load(printConfigFile)
-    columnToShow      = printConfig["columnToShow"]
-    if "columnValueFilter" in printConfig.keys(): 
-        columnValueFilter = printConfig["columnValueFilter"]
-    if "flist" in printConfig.keys(): 
-        flist = printConfig["flist"]
-        print flist
+if __name__ == "__main__":
+    args = parsed_args()
 
-columnValueFilters=[]
+    if args.profile:
+        pr = cProfile.Profile()
+        pr.runcall(main, args)
+        pr.print_stats("time")
+    else:
+        main(args)
 
-if args.endTime is not None:
-    endTime      = datetime.strptime(args.endTime,"%Y-%m-%d %H:%M")
-    endTimefilter   = {"colname":"timestamp","value":endTime,"operator":"<="}
-    columnValueFilters.append(endTimefilter)
-if args.startTime is not None:
-    startTime      = datetime.strptime(args.startTime,"%Y-%m-%d %H:%M")
-    startTimefilter   = {"colname":"timestamp","value":startTime,"operator":">="}
-    columnValueFilters.append(startTimefilter)
-if args.RBX is not "":
-    RBXfilter = {"colname":"RBX","value":args.RBX,"operator":"=="}
-    columnValueFilters.append(RBXfilter)
-if args.crate is not "":
-    cratefilter = {"colname":"CRATE","value":args.crate,"operator":"=="}
-    columnValueFilters.append(cratefilter)
-
-df_list = []
-for f in flist:
-    if f[0]=="#": continue
-    df_list.append( getDataFrame(f,columnToShow,columnValueFilters))
-
-
-frames = pd.concat( df_list )
-frames.sort_values( by='dates')
-
-if args.makeTable:
-    print frames
-
-dfcut = buildselection(frames,columnValueFilters) 
-print outname
-outf    = TFile(outname+".root","RECREATE")
-makeplots(dfcut, columnToShow, columnValueFilters, outname, args.ymin, args.ymax)
-#makeplots_matplotlib(dfcut, columnToShow, columnValueFilters, "test", args.ymin, args.ymax)
-print datetime.now()
