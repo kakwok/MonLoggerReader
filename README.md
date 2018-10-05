@@ -26,3 +26,5 @@ e.g.
 3. Example commands:
 
 `python monlogReader.py  --startTime="2018-08-29 18:00" --printConfig="MON_HCAL_NGRBX_PerHERBX.json" --ymax 1E6 --RBX HEM08`
+
+To see the table values or debug, use the `--makeTable` option.
