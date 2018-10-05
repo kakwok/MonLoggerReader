@@ -10,7 +10,7 @@ matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 from datetime import datetime
 from ROOT import *
-import os
+import os,sys
 
 def buildname(elements):
     listTojoin = []
@@ -194,13 +194,22 @@ def main(args):
     frames = pd.concat( df_list )
     frames.sort_values( by='dates')
     
-    if args.makeTable:
-        print frames
     
     dfcut = buildselection(frames,columnValueFilters) 
-    print outname
+    if dfcut.empty:
+        print "No entries in the table fits the requirements:"
+        for f in columnValueFilters:
+            print f['colname'],f['operator'],f['value']
+        sys.exit()
+    elif args.makeTable:
+        colprint=[]
+        for col in columnToShow:
+            if  col in dfcut.columns : colprint.append(col)
+        print dfcut[colprint]
+    
     outf    = TFile(outname+".root","RECREATE")
     makeplots(dfcut, columnToShow, columnValueFilters, outname, args.ymin, args.ymax, args.png)
+    # TODO: implement matplotlib function to make nice-looking plots
     #makeplots_matplotlib(dfcut, columnToShow, columnValueFilters, "test", args.ymin, args.ymax)
     print datetime.now()
 
