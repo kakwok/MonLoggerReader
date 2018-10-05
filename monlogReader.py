@@ -123,7 +123,7 @@ def makeplots(dfcut,cols,cvf,title,ymin,ymax,png):
     pdf = '%s.pdf' % title
     can.SaveAs(pdf)
     if png:
-        os.system("pdftoppm -cropbox -singlefile -rx 400 -ry 300 -png %s %s" % (pdf, title))
+        os.system("pdftoppm -cropbox -singlefile -rx 300 -ry 300 -png %s %s" % (pdf, title))
 
 def buildselection(df, filters):
     for f in filters:
