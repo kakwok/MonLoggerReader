@@ -1,4 +1,4 @@
-#/usr/bin/env python2
+#!/usr/bin/env python2
 
 import argparse
 import cProfile
@@ -9,8 +9,11 @@ import matplotlib
 matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 from datetime import datetime
-from ROOT import *
 import os,sys
+
+from ROOT import PyConfig
+PyConfig.IgnoreCommandLineOptions = True
+from ROOT import *
 
 def buildname(elements):
     listTojoin = []
