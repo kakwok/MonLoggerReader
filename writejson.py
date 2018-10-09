@@ -13,5 +13,6 @@ configDict = {}
 colToShow = []
 for colname in header.split():
     colToShow.append(colname)
+configDict["flist"] = [args.fileLocation]
 configDict["columnToShow"] = colToShow
 print (json.dumps(configDict,indent=4))
