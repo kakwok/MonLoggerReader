@@ -1,0 +1,15 @@
+{
+    "flist": [
+        "/nfshome0/hcalsw/monlog_loc/ALL/MON_HCAL_NGRBX_PerHFQIE.txt"
+    ],
+    "columnToShow": [
+        "timestamp", 
+        "RBX", 
+        "CARD", 
+        "QIE", 
+        "QIE-CalMode", 
+        "QIE-Er61Count", 
+        "QIE-IllegalTDC_count", 
+        "QIE-NoLockCount"
+    ]
+}
