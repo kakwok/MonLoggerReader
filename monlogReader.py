@@ -80,7 +80,7 @@ def makeplots_matplotlib(df,cols,cvf,title,ymin,ymax):
     ax.legend(loc='best')
     plt.savefig("test.pdf")
  
-def makeplots(dfcut,cols,cvf,title,ymin,ymax,png):
+def makeplots(dfcut,cols,cvf,title,ymin,ymax,png,zero):
     gROOT.SetBatch()
     mg     = TMultiGraph()
     nGraphs= 0
@@ -89,9 +89,12 @@ def makeplots(dfcut,cols,cvf,title,ymin,ymax,png):
     leg = TLegend(0.2,0.3,0.5,0.45)
     for col in cols:
         if not col in dfcut.columns or "timestamp"==col : continue
-        x    = np.array(dfcut['dates'],'d')
+        x = np.array(dfcut['dates'],'d')
         try: 
-            y    = np.array(dfcut[col],'d')
+            y = np.array(dfcut[col],'d')
+            if zero:
+                for i in reversed(range(len(y))):
+                    y[i] -= y[0]
         except ValueError:
             print "Cannot covert column %s"%col
             continue
@@ -127,6 +130,7 @@ def makeplots(dfcut,cols,cvf,title,ymin,ymax,png):
     can.SaveAs(pdf)
     if png:
         os.system("pdftoppm -cropbox -singlefile -rx 300 -ry 300 -png %s %s" % (pdf, title))
+        print "png file %s.png has been created." % title
 
 def buildselection(df, filters):
     for f in filters:
@@ -153,6 +157,7 @@ def parsed_args():
     parser.add_argument("--makeTable"   , help="Print out table to screen ", action='store_true',default=False)
     parser.add_argument("--profile"     , help="Profile this program.", action="store_true", default=False)
     parser.add_argument("--png"         , help="Convert the .pdf to a .png", action="store_true", default=False)
+    parser.add_argument("--zero"        , help="subtract first value from all subsequent points", action="store_true", default=False)
     return parser.parse_args()
 
 def main(args):
@@ -211,7 +216,7 @@ def main(args):
         print dfcut[colprint]
     
     outf    = TFile(outname+".root","RECREATE")
-    makeplots(dfcut, columnToShow, columnValueFilters, outname, args.ymin, args.ymax, args.png)
+    makeplots(dfcut, columnToShow, columnValueFilters, outname, args.ymin, args.ymax, args.png, args.zero)
     # TODO: implement matplotlib function to make nice-looking plots
     #makeplots_matplotlib(dfcut, columnToShow, columnValueFilters, "test", args.ymin, args.ymax)
     print datetime.now()
