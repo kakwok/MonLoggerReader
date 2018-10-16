@@ -80,18 +80,23 @@ def makeplots_matplotlib(df,cols,cvf,title,ymin,ymax):
     ax.legend(loc='best')
     plt.savefig("test.pdf")
  
-def makeplots(dfcut,cols,cvf,title,ymin,ymax,png):
+def makeplots(dfcut,cols,cvf,title,ymin,ymax,png,diff):
     gROOT.SetBatch()
     mg     = TMultiGraph()
     nGraphs= 0
     can = TCanvas("c","c",2400,1600)
-    can.SetLogy(1)
+    if not diff:
+        can.SetLogy(1)
     leg = TLegend(0.2,0.3,0.5,0.45)
     for col in cols:
         if not col in dfcut.columns or "timestamp"==col : continue
+        if diff and not(dfcut[col].dtype==np.float64 or dfcut[col].dtype==np.int64): continue # filter columns without diff
         x    = np.array(dfcut['dates'],'d')
         try: 
-            y    = np.array(dfcut[col],'d')
+            if diff:
+                y    = np.array(dfcut[col+"_diff"],'d')
+            else:
+                y    = np.array(dfcut[col],'d')
         except ValueError:
             print "Cannot covert column %s"%col
             continue
@@ -105,7 +110,10 @@ def makeplots(dfcut,cols,cvf,title,ymin,ymax,png):
         g.SetMarkerStyle(kFullCircle)
         g.SetMarkerSize(0.5)
         g.Write()
-        leg.AddEntry(g,col,"lp")
+        if diff:
+            leg.AddEntry(g,col+"_diff","lp")
+        else:
+            leg.AddEntry(g,col,"lp")
         nGraphs +=1
     filterInfo=""
     for Filter in cvf:
@@ -153,6 +161,7 @@ def parsed_args():
     parser.add_argument("--makeTable"   , help="Print out table to screen ", action='store_true',default=False)
     parser.add_argument("--profile"     , help="Profile this program.", action="store_true", default=False)
     parser.add_argument("--png"         , help="Convert the .pdf to a .png", action="store_true", default=False)
+    parser.add_argument("--diff"        , help="plot the diff of columns", action="store_true", default=False)
     return parser.parse_args()
 
 def main(args):
@@ -204,14 +213,31 @@ def main(args):
         for f in columnValueFilters:
             print f['colname'],f['operator'],f['value']
         sys.exit()
-    elif args.makeTable:
-        colprint=[]
-        for col in columnToShow:
-            if  col in dfcut.columns : colprint.append(col)
-        print dfcut[colprint]
+    else:
+        if args.makeTable:
+            colprint=[]
+            for col in columnToShow:
+                if  col in dfcut.columns : 
+                    if args.diff:
+                        if (dfcut[col].dtype==np.float64 or dfcut[col].dtype==np.int64):
+                           dfcut[col+"_diff"] = dfcut[col].diff()              # make a new diff column
+                           dfzs              = dfcut[dfcut[col+"_diff"]!=0]             # Zero-suppressd file 
+                           colprint.append(col+"_diff") #print only those column exists in the table   
+                    else:
+                        colprint.append(col) #print only those column exists in the table   
+            print dfcut[colprint]
+            if args.diff:
+                dfzs.to_csv(outname+".txt", sep='\t')   #Zero-suppressed file
+        if args.diff:
+            for col in columnToShow:
+                if not col in dfcut.columns or "timestamp"==col : continue 
+                if (dfcut[col].dtype==np.float64 or dfcut[col].dtype==np.int64):
+                    dfcut[col+"_diff"] = dfcut[col].diff()              # make a new diff column
+                else:
+                    print "columne: %s  is not int/float, not performing diff."%col
     
     outf    = TFile(outname+".root","RECREATE")
-    makeplots(dfcut, columnToShow, columnValueFilters, outname, args.ymin, args.ymax, args.png)
+    makeplots(dfcut, columnToShow, columnValueFilters, outname, args.ymin, args.ymax, args.png, args.diff)
     # TODO: implement matplotlib function to make nice-looking plots
     #makeplots_matplotlib(dfcut, columnToShow, columnValueFilters, "test", args.ymin, args.ymax)
     print datetime.now()
