@@ -150,14 +150,14 @@ def makeplots(dfcut,cols,cvf,title,ymin,ymax,png,diff):
 def buildselection(df, filters):
     for f in filters:
         if f['operator'] == "==":
-            df =  df.loc[ df[f['colname']]==f['value'] ]
+            dfcut =  df.loc[ df[f['colname']]==f['value'] ]
         if f['operator'] == ">=":
-            df =  df.loc[ df[f['colname']]>=f['value'] ]
+            dfcut =  df.loc[ df[f['colname']]>=f['value'] ]
         if f['operator'] == "!=":
-            df =  df.loc[ df[f['colname']]!=f['value'] ]
+            dfcut =  df.loc[ df[f['colname']]!=f['value'] ]
         if f['operator'] == "<=":
-            df =  df.loc[ df[f['colname']]<=f['value'] ]
-    return df
+            dfcut =  df.loc[ df[f['colname']]<=f['value'] ]
+    return dfcut
             
 def parsed_args():
     parser = argparse.ArgumentParser()
@@ -177,7 +177,7 @@ def parsed_args():
     return parser.parse_args()
 
 def plotdataframe(frames,args,columnToShow,columnValueFilters,outname):
-    outf    = TFile(outname+".root","RECREATE")
+    #outf    = TFile(outname+".root","RECREATE")
     dfcut = buildselection(frames,columnValueFilters) 
     if dfcut.empty:
         print "No entries in the table fits the requirements:"
@@ -207,7 +207,7 @@ def plotdataframe(frames,args,columnToShow,columnValueFilters,outname):
                 else:
                     print "columne: %s  is not int/float, not performing diff."%col
         makeplots(dfcut, columnToShow, columnValueFilters, outname, args.ymin, args.ymax, args.png, args.diff)
-    outf.Close()
+    #outf.Close()
 
 def main(args):
     print datetime.now()
