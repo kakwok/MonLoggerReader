@@ -53,7 +53,6 @@ def getDataFrame(filename,columnToShow,columnValueFilters):
     #    df = pd.read_csv(filename,delim_whitespace=True,usecols=colToSelect)
     #else:
     #    print columnToShow
-    #    df = pd.read_csv(filename,delim_whitespace=True)
     df = pd.read_csv(filename,delim_whitespace=True)
     
     df['timestamp'] = df['timestamp'].apply(lambda x: x.split('+')[0])
@@ -96,8 +95,7 @@ def makeplots(dfcut,cols,cvf,title,ymin,ymax,png,diff):
     mg     = TMultiGraph()
     nGraphs= 0
     can = TCanvas("c","c",2400,1600)
-    if not diff:
-        can.SetLogy(1)
+    can.SetLogy(1)
     leg = TLegend(0.2,0.3,0.5,0.45)
     for col in cols:
         if not col in dfcut.columns or "timestamp"==col : continue
@@ -192,6 +190,7 @@ def plotdataframe(frames,args,columnToShow,columnValueFilters,outname):
                     if args.diff:
                         if (dfcut[col].dtype==np.float64 or dfcut[col].dtype==np.int64):
                            dfcut[col+"_diff"] = dfcut[col].diff()              # make a new diff column
+                           dfcut.fillna(0)
                            dfzs              = dfcut[dfcut[col+"_diff"]!=0]             # Zero-suppressd file 
                            colprint.append(col+"_diff") #print only those column exists in the table   
                     else:
@@ -204,6 +203,7 @@ def plotdataframe(frames,args,columnToShow,columnValueFilters,outname):
                 if not col in dfcut.columns or "timestamp"==col : continue 
                 if (dfcut[col].dtype==np.float64 or dfcut[col].dtype==np.int64):
                     dfcut[col+"_diff"] = dfcut[col].diff()              # make a new diff column
+                    dfcut.fillna(0)
                 else:
                     print "columne: %s  is not int/float, not performing diff."%col
         makeplots(dfcut, columnToShow, columnValueFilters, outname, args.ymin, args.ymax, args.png, args.diff)
