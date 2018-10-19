@@ -95,7 +95,7 @@ def makeplots_matplotlib(df,cols,cvf,title,ymin,ymax):
     ax.legend(loc='best')
     plt.savefig("test.pdf")
  
-def makeplots(dfcut,cols,cvf,title,ymin,ymax,png,diff):
+def makeplots(dfcut,cols,cvf,title,ymin,ymax,png,diff,zero):
     gROOT.SetBatch()
     mg     = TMultiGraph()
     nGraphs= 0
@@ -109,6 +109,9 @@ def makeplots(dfcut,cols,cvf,title,ymin,ymax,png,diff):
         try: 
             if diff:
                 y    = np.array(dfcut[col+"_diff"],'d')
+            elif zero:
+                for i in reversed(range(len(y))):
+                    y[i] -= y[0]
             else:
                 y    = np.array(dfcut[col],'d')
         except ValueError:
@@ -149,6 +152,7 @@ def makeplots(dfcut,cols,cvf,title,ymin,ymax,png,diff):
     can.SaveAs(pdf)
     if png:
         os.system("pdftoppm -cropbox -singlefile -rx 300 -ry 300 -png %s %s" % (pdf, title))
+        print "png file %s.png has been created." % title
 
 def buildselection(df, filters):
     dfcut = df.copy()
@@ -179,6 +183,7 @@ def parsed_args():
     parser.add_argument("--png"         , help="Convert the .pdf to a .png", action="store_true", default=False)
     parser.add_argument("--diff"        , help="plot the diff of columns", action="store_true", default=False)
     parser.add_argument("--notMonLog"   , help="do not convert monLogger timestamp", action="store_true", default=False)
+    parser.add_argument("--zero"        , help="subtract first value from all subsequent points", action="store_true", default=False)
     return parser.parse_args()
 
 def plotdataframe(frames,args,columnToShow,columnValueFilters,outname):
@@ -215,13 +220,15 @@ def plotdataframe(frames,args,columnToShow,columnValueFilters,outname):
                     dfcut.fillna(0)
                 else:
                     print "columne: %s  is not int/float, not performing diff."%col
-        makeplots(dfcut, columnToShow, columnValueFilters, outname, args.ymin, args.ymax, args.png, args.diff)
+        makeplots(dfcut, columnToShow, columnValueFilters, outname, args.ymin, args.ymax, args.png, args.diff,args.zero)
     #outf.Close()
 
 def main(args):
     print datetime.now()
     outname = os.path.join(args.odir,buildname([args.crate, args.RBX,"multiGraph",args.printConfig.split("/")[-1].replace(".json",""),args.startTime.split(" ")[0]]))
-    
+    if args.zero:
+        outname += "_zero"
+
     columnToShow = []
     flist        = []
     columnValueFilters=[]
@@ -276,7 +283,6 @@ def main(args):
             outname = os.path.join(args.odir,buildname([args.crate, RBX,"multiGraph",args.printConfig.split("/")[-1].replace(".json",""),args.startTime.split(" ")[0]]))
             plotdataframe(frames,args,columnToShow,loopfilter,outname)
             loopfilter.pop()
-        
     # TODO: implement matplotlib function to make nice-looking plots
     #makeplots_matplotlib(dfcut, columnToShow, columnValueFilters, "test", args.ymin, args.ymax)
     print datetime.now()
