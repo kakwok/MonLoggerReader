@@ -28,3 +28,9 @@ e.g.
 `python monlogReader.py  --startTime="2018-08-29 18:00" --printConfig="MON_HCAL_NGRBX_PerHERBX.json" --ymax 1E6 --RBX HEM08`
 
 To see the table values or debug, use the `--makeTable` option.
+
+To scan all RBXes for PLL diff:
+`python monlogReader.py --startTime="2018-06-29 08:00"  --printConfig="./mezzPLLdiff.json" --RBXes --odir diff_filtered --diff --makeTable --png`
+
+To analysis the output txt file:
+`python monlogReader.py --startTime="2018-06-29 08:00"  --printConfig="./merged.json" --makeTable  --notMonLog`
