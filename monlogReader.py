@@ -37,7 +37,8 @@ def convertTimeString(timeString):
     t  = TDatime(ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second)                           
     return t.Convert()
 
-def getDataFrame(filename,columnToShow,columnValueFilters):
+def getDataFrame(filename,columnToShow,columnValueFilters,args):
+    # TODO: load only the columns we are interested in.
     #if columnToShow is not []:
     #    filterKeys =[]
     #    colToSelect = []
@@ -53,20 +54,24 @@ def getDataFrame(filename,columnToShow,columnValueFilters):
     #    df = pd.read_csv(filename,delim_whitespace=True,usecols=colToSelect)
     #else:
     #    print columnToShow
-    df = pd.read_csv(filename,delim_whitespace=True)
-    
-    df['timestamp'] = df['timestamp'].apply(lambda x: x.split('+')[0])
-    df['timestamp'] = df['timestamp'].apply(lambda x: x.replace('T',' '))
-    # filter out extra header rows
-    df = df[df.timestamp != 'timestamp']
-    #df = df.iloc[:55000]
-    # get matplotlib dates
-    #df['timestamp'] =  pd.to_datetime(df['timestamp'], format='%Y-%m-%d %H:%M:%S.%f')
-    #df['dates'] = matplotlib.dates.date2num(df['timestamp'])
-    # get ROOT  dates
-    df['dates'] = df['timestamp'].apply(convertTimeString)
-    # convert to python datetimes
-    df['timestamp'] =  pd.to_datetime(df['timestamp'], format='%Y-%m-%d %H:%M:%S.%f')
+    if not args.notMonLog:
+        df = pd.read_csv(filename,delim_whitespace=True)
+        
+        df['timestamp'] = df['timestamp'].apply(lambda x: x.split('+')[0])
+        df['timestamp'] = df['timestamp'].apply(lambda x: x.replace('T',' '))
+        # filter out extra header rows
+        #df = df.iloc[:55000]
+        # get matplotlib dates
+        #df['timestamp'] =  pd.to_datetime(df['timestamp'], format='%Y-%m-%d %H:%M:%S.%f')
+        #df['dates'] = matplotlib.dates.date2num(df['timestamp'])
+        # get ROOT  dates
+        df['dates'] = df['timestamp'].apply(convertTimeString)
+        # convert to python datetimes
+        df['timestamp'] =  pd.to_datetime(df['timestamp'], format='%Y-%m-%d %H:%M:%S.%f')
+    else:
+        df = pd.read_csv(filename,sep='\t')
+        df = df[df.timestamp != 'timestamp']
+        df['timestamp'] =  pd.to_datetime(df['timestamp'], format='%Y-%m-%d %H:%M:%S.%f')
     
     return df
 
@@ -146,15 +151,16 @@ def makeplots(dfcut,cols,cvf,title,ymin,ymax,png,diff):
         os.system("pdftoppm -cropbox -singlefile -rx 300 -ry 300 -png %s %s" % (pdf, title))
 
 def buildselection(df, filters):
+    dfcut = df.copy()
     for f in filters:
         if f['operator'] == "==":
-            dfcut =  df.loc[ df[f['colname']]==f['value'] ]
+            dfcut =  dfcut.loc[ dfcut[f['colname']]==f['value'] ]
         if f['operator'] == ">=":
-            dfcut =  df.loc[ df[f['colname']]>=f['value'] ]
+            dfcut =  dfcut.loc[ dfcut[f['colname']]>=f['value'] ]
         if f['operator'] == "!=":
-            dfcut =  df.loc[ df[f['colname']]!=f['value'] ]
+            dfcut =  dfcut.loc[ dfcut[f['colname']]!=f['value'] ]
         if f['operator'] == "<=":
-            dfcut =  df.loc[ df[f['colname']]<=f['value'] ]
+            dfcut =  dfcut.loc[ dfcut[f['colname']]<= f['value'] ]
     return dfcut
             
 def parsed_args():
@@ -172,6 +178,7 @@ def parsed_args():
     parser.add_argument("--profile"     , help="Profile this program.", action="store_true", default=False)
     parser.add_argument("--png"         , help="Convert the .pdf to a .png", action="store_true", default=False)
     parser.add_argument("--diff"        , help="plot the diff of columns", action="store_true", default=False)
+    parser.add_argument("--notMonLog"   , help="do not convert monLogger timestamp", action="store_true", default=False)
     return parser.parse_args()
 
 def plotdataframe(frames,args,columnToShow,columnValueFilters,outname):
@@ -195,9 +202,11 @@ def plotdataframe(frames,args,columnToShow,columnValueFilters,outname):
                            colprint.append(col+"_diff") #print only those column exists in the table   
                     else:
                         colprint.append(col) #print only those column exists in the table   
-            print dfcut[colprint]
+            dfprint = dfcut[colprint]
+            print dfprint
+            dfprint.to_csv(outname+".txt",sep='\t')
             if args.diff:
-                dfzs.to_csv(outname+".txt", sep='\t')   #Zero-suppressed file
+                dfzs.to_csv(outname+"_diff.txt", sep='\t')   #Zero-suppressed file
         if args.diff:
             for col in columnToShow:
                 if not col in dfcut.columns or "timestamp"==col : continue 
@@ -215,29 +224,29 @@ def main(args):
     
     columnToShow = []
     flist        = []
+    columnValueFilters=[]
     if(args.printConfig is not None):
         printConfigFile=open(args.printConfig)
         printConfig       = json.load(printConfigFile)
         columnToShow      = printConfig["columnToShow"]
         if "columnValueFilter" in printConfig.keys(): 
-            columnValueFilter = printConfig["columnValueFilter"]
+            columnValueFilters = printConfig["columnValueFilter"]
         if "flist" in printConfig.keys(): 
             flist = printConfig["flist"]
             print flist
-    
-    columnValueFilters=[]
-    timeFilters =[]
+   
+    baseFilters =columnValueFilters
     
     if args.endTime is not None:
         endTime      = datetime.strptime(args.endTime,"%Y-%m-%d %H:%M")
         endTimefilter   = {"colname":"timestamp","value":endTime,"operator":"<="}
         columnValueFilters.append(endTimefilter)
-        timeFilters.append(endTimefilter)
+        baseFilters.append(endTimefilter)
     if args.startTime is not None:
         startTime      = datetime.strptime(args.startTime,"%Y-%m-%d %H:%M")
         startTimefilter   = {"colname":"timestamp","value":startTime,"operator":">="}
         columnValueFilters.append(startTimefilter)
-        timeFilters.append(startTimefilter)
+        baseFilters.append(startTimefilter)
     if args.RBX is not "":
         RBXfilter = {"colname":"RBX","value":args.RBX,"operator":"=="}
         columnValueFilters.append(RBXfilter)
@@ -248,7 +257,7 @@ def main(args):
     df_list = []
     for f in flist:
         if f[0]=="#": continue
-        df_list.append( getDataFrame(f,columnToShow,columnValueFilters))
+        df_list.append( getDataFrame(f,columnToShow,columnValueFilters,args))
     
     
     frames = pd.concat( df_list )
@@ -258,7 +267,7 @@ def main(args):
         plotdataframe(frames,args,columnToShow,columnValueFilters,outname)
     else:
         RBXes     = getAllRBXes()
-        loopfilter = timeFilters
+        loopfilter = baseFilters
         for RBX in RBXes: 
             print "Making plots for RBX= ",RBX
             RBXfilter = {"colname":"RBX","value":RBX,"operator":"=="}
