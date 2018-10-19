@@ -163,7 +163,9 @@ def parsed_args():
 def main(args):
     print datetime.now()
     outname = os.path.join(args.odir,buildname([args.crate, args.RBX,"multiGraph",args.printConfig.split("/")[-1].replace(".json",""),args.startTime.split(" ")[0]]))
-    
+    if args.zero:
+        outname += "_zero"
+
     columnToShow = []
     flist        = []
     if(args.printConfig is not None):
