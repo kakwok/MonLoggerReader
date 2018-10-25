@@ -5,7 +5,8 @@
         "#/nfshome0/hcalsw/monlog_loc/ALL/MON_HCAL_NGRBX_PerHERBX.txt.11092018",
         "#/nfshome0/hcalsw/monlog_loc/preprocessed/MON_HCAL_NGRBX_PerHERBX.txt.19092018",
         "#/nfshome0/hcalsw/monlog_loc/preprocessed/MON_HCAL_NGRBX_PerHERBX.txt.25092018",
-        "/nfshome0/hcalsw/monlog_loc/preprocessed/MON_HCAL_NGRBX_PerHERBX.txt"
+        "/nfshome0/hcalsw/monlog_loc/preprocessed/MON_HCAL_NGRBX_PerHERBX.txt.22102018",
+        "#/nfshome0/hcalsw/monlog_loc/preprocessed/test.txt"
     ],
     "columnToShow": [
         "timestamp", 
