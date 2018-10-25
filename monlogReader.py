@@ -33,8 +33,11 @@ def buildname(elements):
     return "_".join(listTojoin)
 
 def convertTimeString(timeString):
-    ts = datetime.strptime(timeString,'%Y-%m-%d %H:%M:%S.%f')
-    t  = TDatime(ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second)                           
+    try:
+        ts = datetime.strptime(timeString,'%Y-%m-%d %H:%M:%S.%f')
+        t  = TDatime(ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second)                           
+    except ValueError :
+        print "Value error: trying to convert this string to timestamp:", timeString
     return t.Convert()
 
 def getDataFrame(filename,columnToShow,columnValueFilters,args):
@@ -60,6 +63,7 @@ def getDataFrame(filename,columnToShow,columnValueFilters,args):
         df['timestamp'] = df['timestamp'].apply(lambda x: x.split('+')[0])
         df['timestamp'] = df['timestamp'].apply(lambda x: x.replace('T',' '))
         # filter out extra header rows
+        df = df[df.timestamp != 'timestamp']
         #df = df.iloc[:55000]
         # get matplotlib dates
         #df['timestamp'] =  pd.to_datetime(df['timestamp'], format='%Y-%m-%d %H:%M:%S.%f')
