@@ -58,12 +58,18 @@ def getDataFrame(filename,columnToShow,columnValueFilters,args):
     #else:
     #    print columnToShow
     if not args.notMonLog:
-        df = pd.read_csv(filename,delim_whitespace=True)
+        # to get pandas to infer types correctly, we use the "comment" option of read_csv to ignore all lines
+        #    starting with 't' for 'timestamp'. Then we have no header lines in the file.
+        # to get the headers set correctly, we read them from the first line of the txt file.
+        # the comment option, unfortunately, can only be a single character.
+        # the first column should always be 'timestamp' and start with a number. this is basically enforced in monlogger.
+        with open(filename) as f:
+            first_line = f.readline()
+        headerNamesList = first_line.split()
+        df = pd.read_csv(filename,delim_whitespace=True,comment='t',names=headerNamesList)
         
         df['timestamp'] = df['timestamp'].apply(lambda x: x.split('+')[0])
         df['timestamp'] = df['timestamp'].apply(lambda x: x.replace('T',' '))
-        # filter out extra header rows
-        df = df[df.timestamp != 'timestamp']
         #df = df.iloc[:55000]
         # get matplotlib dates
         #df['timestamp'] =  pd.to_datetime(df['timestamp'], format='%Y-%m-%d %H:%M:%S.%f')
