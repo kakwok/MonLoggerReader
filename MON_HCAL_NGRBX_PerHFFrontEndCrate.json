@@ -1,0 +1,39 @@
+{
+    "flist": [
+        "/nfshome0/hcalsw/monlog_loc/ALL/MON_HCAL_NGRBX_PerHFFrontEndCrate.txt"
+    ],
+    "columnToShow": [
+        "timestamp", 
+        "#FLAG-cg", 
+        "#FLAG-lg", 
+        "#FLAG-pg", 
+        "RBX", 
+        "fec-sfp_rx_power_f", 
+        "fec-sfp_tx_power_f", 
+        "#fec_bkp_pwr_flip_hz", 
+        "#fec_rx_prbs_error_hz", 
+        "#fec_rx_raw_error_hz", 
+        "#mezz_rx_prbs_error_rate", 
+        "#mezz_rx_rsdec_error_rate", 
+        "vtrx_rssi_f", 
+        "#FLAG_Filtered-cg", 
+        "#FLAG_Filtered-lg", 
+        "#FLAG_Filtered-pg", 
+        "#FLAG_Integer-cg", 
+        "#FLAG_Integer-lg", 
+        "#FLAG_Integer-pg", 
+        "#bkp_pwr_bad", 
+        "#fec_bkp_pwr_flip_cnt", 
+        "#fec_dv_down_cnt", 
+        "#fec_rx_prbs_error_cnt", 
+        "#fec_rx_raw_error_cnt", 
+        "#fec_rxlos_cnt", 
+        "mezz_RX_PLL_LOCK_LOST_CNT", 
+        "#mezz_WTE_MISSING", 
+        "#mezz_WTE_cnt", 
+        "#mezz_qie_reset_MISSING", 
+        "#mezz_qie_reset_cnt", 
+        "mezz_rx_prbs_error_cnt", 
+        "mezz_rx_rsdec_error_cnt"
+    ]
+}
