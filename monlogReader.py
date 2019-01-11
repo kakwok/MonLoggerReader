@@ -120,6 +120,7 @@ def makeplots(dfcut,cols,cvf,title,ymin,ymax,png,diff,zero):
             if diff:
                 y    = np.array(dfcut[col+"_diff"],'d')
             elif zero:
+                y    = np.array(dfcut[col],'d')
                 for i in reversed(range(len(y))):
                     y[i] -= y[0]
             else:
