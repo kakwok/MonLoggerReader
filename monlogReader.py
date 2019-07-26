@@ -105,12 +105,12 @@ def makeplots_matplotlib(df,cols,cvf,title,ymin,ymax):
     ax.legend(loc='best')
     plt.savefig("test.pdf")
  
-def makeplots(dfcut,cols,cvf,title,ymin,ymax,png,diff,zero):
+def makeplots(dfcut,cols,cvf,title,ymin,ymax,png,diff,zero,liny,gopt):
     gROOT.SetBatch()
     mg     = TMultiGraph()
     nGraphs= 0
     can = TCanvas("c","c",2400,1600)
-    can.SetLogy(1)
+    can.SetLogy(not liny)
     leg = TLegend(0.2,0.3,0.5,0.45)
     for col in cols:
         if not col in dfcut.columns or "timestamp"==col : continue
@@ -149,8 +149,7 @@ def makeplots(dfcut,cols,cvf,title,ymin,ymax,png,diff,zero):
         filterInfo += "%s %s "%(Filter['colname'],Filter['value'])
     mg.SetTitle(filterInfo)
     mg.SetName("multigraph")
-    #mg.Draw("ap")
-    mg.Draw("alp")
+    mg.Draw(gopt)
     mg.SetMinimum(ymin)
     mg.SetMaximum(ymax)
     mg.GetXaxis().SetTimeDisplay(1)
@@ -186,8 +185,11 @@ def parsed_args():
     parser.add_argument("--RBX"         , help="select an RBX "  ,default="")
     parser.add_argument("--RBXes"       , help="Loop all RBXes", action="store_true", default=False)
     parser.add_argument("--crate"       , help="select an crate ",default="")
+    parser.add_argument("--slot"        , help="select a slot", default="")
+    parser.add_argument("--fiber"       , help="select a fiber", default="")
     parser.add_argument("--ymin"        , help="min y-value on plots", type=float, default=1E-6)
     parser.add_argument("--ymax"        , help="max y-value on plots", type=float, default=1E5)
+    parser.add_argument("--ylin"        , help="linear y axis", action="store_true", default=False)
     parser.add_argument("-o","--odir"   ,dest="odir", help="output path",default="./")
     parser.add_argument("--makeTable"   , help="Print out table to screen ", action='store_true',default=False)
     parser.add_argument("--profile"     , help="Profile this program.", action="store_true", default=False)
@@ -195,6 +197,7 @@ def parsed_args():
     parser.add_argument("--diff"        , help="plot the diff of columns", action="store_true", default=False)
     parser.add_argument("--notMonLog"   , help="do not convert monLogger timestamp", action="store_true", default=False)
     parser.add_argument("--zero"        , help="subtract first value from all subsequent points", action="store_true", default=False)
+    parser.add_argument("--gopt"        , help="graphical options", default="alp")
     return parser.parse_args()
 
 def plotdataframe(frames,args,columnToShow,columnValueFilters,outname):
@@ -231,14 +234,32 @@ def plotdataframe(frames,args,columnToShow,columnValueFilters,outname):
                     dfcut.fillna(0)
                 else:
                     print "columne: %s  is not int/float, not performing diff."%col
-        makeplots(dfcut, columnToShow, columnValueFilters, outname, args.ymin, args.ymax, args.png, args.diff,args.zero)
+        makeplots(dfcut, columnToShow, columnValueFilters, outname,
+                  args.ymin, args.ymax, args.png, args.diff, args.zero, args.ylin, args.gopt)
     #outf.Close()
+
+def outfilename(args):
+    items = []
+    if args.RBX:
+        items.append(args.RBX)
+    if args.crate:
+        items.append("Crate"+args.crate)
+    if args.slot:
+        items.append("Slot"+args.slot)
+    if args.fiber:
+        items.append("Fiber"+args.fiber)
+
+    items += ["multiGraph",args.printConfig.split("/")[-1].replace(".json","")]
+
+    if args.startTime:
+        items.append(args.startTime.split(" ")[0])
+    if args.zero:
+        items.append("zero")
+    return os.path.join(args.odir, buildname(items))
+
 
 def main(args):
     print datetime.now()
-    outname = os.path.join(args.odir,buildname([args.crate, args.RBX,"multiGraph",args.printConfig.split("/")[-1].replace(".json",""),args.startTime.split(" ")[0]]))
-    if args.zero:
-        outname += "_zero"
 
     columnToShow = []
     flist        = []
@@ -269,8 +290,14 @@ def main(args):
         RBXfilter = {"colname":"RBX","value":args.RBX,"operator":"=="}
         columnValueFilters.append(RBXfilter)
     if args.crate is not "":
-        cratefilter = {"colname":"CRATE","value":args.crate,"operator":"=="}
+        cratefilter = {"colname":"CRATE","value":int(args.crate),"operator":"=="}
         columnValueFilters.append(cratefilter)
+    if args.slot is not "":
+        slotfilter = {"colname":"SLOT","value":int(args.slot),"operator":"=="}
+        columnValueFilters.append(slotfilter)
+    if args.fiber is not "":
+        fiberfilter = {"colname":"FIBER","value":int(args.fiber),"operator":"=="}
+        columnValueFilters.append(fiberfilter)
     
     df_list = []
     for f in flist:
@@ -282,7 +309,7 @@ def main(args):
     frames.sort_values( by='dates')
     
     if not args.RBXes:
-        plotdataframe(frames,args,columnToShow,columnValueFilters,outname)
+        plotdataframe(frames,args,columnToShow,columnValueFilters,outfilename(args))
     else:
         RBXes     = getAllRBXes()
         loopfilter = baseFilters
@@ -291,8 +318,7 @@ def main(args):
             RBXfilter = {"colname":"RBX","value":RBX,"operator":"=="}
             loopfilter.append(RBXfilter)
             print loopfilter
-            outname = os.path.join(args.odir,buildname([args.crate, RBX,"multiGraph",args.printConfig.split("/")[-1].replace(".json",""),args.startTime.split(" ")[0]]))
-            plotdataframe(frames,args,columnToShow,loopfilter,outname)
+            plotdataframe(frames,args,columnToShow,loopfilter,outfilename(args))
             loopfilter.pop()
     # TODO: implement matplotlib function to make nice-looking plots
     #makeplots_matplotlib(dfcut, columnToShow, columnValueFilters, "test", args.ymin, args.ymax)
